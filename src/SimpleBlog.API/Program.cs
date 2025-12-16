@@ -9,18 +9,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Настраиваем базу данных
-builder.Services.AddDbContext<BlogContext>(options =>
+// По умолчанию используем InMemory для тестов
+if (builder.Environment.EnvironmentName == "Test" || 
+    builder.Environment.IsEnvironment("Testing"))
 {
-    // Для разработки используем SQLite, для тестов - InMemory
-    if (builder.Environment.IsEnvironment("Testing"))
-    {
-        options.UseInMemoryDatabase("TestBlog");
-    }
-    else
-    {
-        options.UseSqlite("Data Source=blog.db");
-    }
-});
+    builder.Services.AddDbContext<BlogContext>(options =>
+        options.UseInMemoryDatabase("TestBlog"));
+}
+else
+{
+    builder.Services.AddDbContext<BlogContext>(options =>
+        options.UseSqlite("Data Source=blog.db"));
+}
 
 var app = builder.Build();
 
@@ -35,14 +35,18 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
-// Инициализируем базу данных
-using (var scope = app.Services.CreateScope())
+// Инициализируем базу данных (только если не тестовая среда)
+if (!app.Environment.IsEnvironment("Test") && 
+    !app.Environment.IsEnvironment("Testing"))
 {
-    var context = scope.ServiceProvider.GetRequiredService<BlogContext>();
-    context.Database.EnsureCreated();
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<BlogContext>();
+        context.Database.EnsureCreated();
+    }
 }
 
 app.Run();
 
 // Для тестирования
-public partial class Program {}
+public partial class Program { }

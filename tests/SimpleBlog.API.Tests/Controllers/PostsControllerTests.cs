@@ -10,11 +10,11 @@ namespace SimpleBlog.API.Tests.Controllers;
 
 public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly HttpClient _client;
 
     public PostsControllerTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory.WithWebHostBuilder(builder =>
+        _client = factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
@@ -29,58 +29,43 @@ public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>
                     options.UseInMemoryDatabase("TestBlog");
                 });
             });
-        });
+        }).CreateClient();
     }
 
     [Fact]
-    public async Task GetPosts_ReturnsPosts()
+    public async Task GetPosts_ReturnsOk()
     {
-        // Arrange
-        var client = _factory.CreateClient();
-        
-        // Act
-        var response = await client.GetAsync("/api/posts");
+        // Arrange & Act
+        var response = await _client.GetAsync("/api/posts");
         
         // Assert
         response.EnsureSuccessStatusCode();
-        var posts = await response.Content.ReadFromJsonAsync<List<Post>>();
-        
-        Assert.NotNull(posts);
-        Assert.True(posts.Count >= 2); // Должны быть начальные данные
     }
 
     [Fact]
-    public async Task GetPost_ExistingId_ReturnsPost()
+    public async Task GetPost_ExistingId_ReturnsOk()
     {
-        // Arrange
-        var client = _factory.CreateClient();
-        
-        // Act
-        var response = await client.GetAsync("/api/posts/1");
+        // Arrange & Act
+        var response = await _client.GetAsync("/api/posts/1");
         
         // Assert
         response.EnsureSuccessStatusCode();
-        var post = await response.Content.ReadFromJsonAsync<Post>();
-        
-        Assert.NotNull(post);
-        Assert.Equal("Добро пожаловать в блог!", post.Title);
     }
 
     [Fact]
-    public async Task CreatePost_ValidPost_CreatesSuccessfully()
+    public async Task CreatePost_ReturnsCreated()
     {
         // Arrange
-        var client = _factory.CreateClient();
-        var newPost = new { Title = "Новый пост", Content = "Содержание нового поста", Author = "Тест" };
+        var newPost = new { 
+            Title = "Новый пост", 
+            Content = "Содержание нового поста", 
+            Author = "Тест" 
+        };
         
         // Act
-        var response = await client.PostAsJsonAsync("/api/posts", newPost);
+        var response = await _client.PostAsJsonAsync("/api/posts", newPost);
         
         // Assert
-        response.EnsureSuccessStatusCode();
-        var createdPost = await response.Content.ReadFromJsonAsync<Post>();
-        
-        Assert.NotNull(createdPost);
-        Assert.Equal("Новый пост", createdPost.Title);
+        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
     }
 }

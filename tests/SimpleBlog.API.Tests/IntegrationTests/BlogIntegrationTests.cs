@@ -30,6 +30,8 @@ public class BlogIntegrationTests : IClassFixture<WebApplicationFactory<Program>
         postResponse.EnsureSuccessStatusCode();
         var createdPost = await postResponse.Content.ReadFromJsonAsync<Post>();
         
+        Assert.NotNull(createdPost); // Добавляем проверку
+        
         // Act 2: Добавляем комментарий
         var newComment = new { Author = "Читатель", Content = "Отличный пост!" };
         var commentResponse = await client.PostAsJsonAsync($"/api/posts/{createdPost.Id}/comments", newComment);
