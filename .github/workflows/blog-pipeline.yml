@@ -6,10 +6,13 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: 'src/SimpleBlog.API'
+  TEST_PATH: 'tests/SimpleBlog.API.Tests'
 
 jobs:
-  test:
-    name: 🧪 Тестирование
+  # Джоба 1: Сборка проекта
+  build:
+    name: 🔨 Сборка проекта
     runs-on: ubuntu-latest
 
     steps:
@@ -21,23 +24,199 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: 💬 Восстанавливаем зависимости
-      run: dotnet restore
-
-    - name: 🔨 Собираем проект
+    - name: 📦 Восстанавливаем зависимости
       run: |
-        echo "=== СБОРКА ПРОЕКТА ==="
-        dotnet build --verbosity minimal
-        
-    - name: 🧪 Запускаем тесты
+        echo "=== ВОССТАНОВЛЕНИЕ ЗАВИСИМОСТЕЙ ==="
+        dotnet restore
+        echo "✅ Зависимости восстановлены"
+
+    - name: 🔨 Собираем основной проект
+      run: |
+        echo "=== СБОРКА ОСНОВНОГО ПРОЕКТА ==="
+        dotnet build ${{ env.PROJECT_PATH }} --configuration Release --verbosity minimal
+        echo "✅ Основной проект собран"
+
+    - name: 🔨 Собираем тестовый проект
+      run: |
+        echo "=== СБОРКА ТЕСТОВОГО ПРОЕКТА ==="
+        dotnet build ${{ env.TEST_PATH }} --configuration Debug --verbosity minimal
+        echo "✅ Тестовый проект собран"
+
+    - name: 💾 Сохраняем артефакты сборки
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          ${{ env.PROJECT_PATH }}/bin/
+          ${{ env.TEST_PATH }}/bin/
+        retention-days: 7
+
+  # Джоба 2: Запуск тестов
+  test:
+    name: 🧪 Тестирование
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 💬 Загружаем код
+      uses: actions/checkout@v4
+
+    - name: 💬 Устанавливаем .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 🧪 Запускаем все тесты
       run: |
         echo "=== ЗАПУСК ТЕСТОВ ==="
-        cd tests/SimpleBlog.API.Tests
-        dotnet test --verbosity minimal
+        echo "Количество тестов: 4"
+        echo "Из них:"
+        echo "  - 3 unit теста"
+        echo "  - 1 интеграционный тест"
+        echo ""
         
-    - name: 📊 Отчет
+        # Запускаем тесты
+        cd tests/SimpleBlog.API.Tests
+        dotnet test --verbosity normal
+        
+        echo ""
+        echo "✅ Тестирование завершено"
+
+    - name: 📊 Сохраняем результаты тестов
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: ${{ env.TEST_PATH }}/TestResults/
+        retention-days: 30
+
+  # Джоба 3: Сборка Docker образа
+  docker-build:
+    name: 🐳 Сборка Docker
+    needs: [build, test]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 💬 Загружаем код
+      uses: actions/checkout@v4
+
+    - name: 🐳 Собираем Docker образ
+      run: |
+        echo "=== СБОРКА DOCKER ОБРАЗА ==="
+        docker build -t simple-blog-api:latest .
+        echo "✅ Docker образ собран"
+        docker images | grep simple-blog-api
+
+  # Джоба 4: Публикация приложения
+  publish:
+    name: 📦 Публикация
+    needs: [build, test, docker-build]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 💬 Загружаем код
+      uses: actions/checkout@v4
+
+    - name: 💬 Устанавливаем .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Публикуем приложение
+      run: |
+        echo "=== ПУБЛИКАЦИЯ ПРИЛОЖЕНИЯ ==="
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish
+        echo "✅ Приложение опубликовано"
+        
+        echo "Содержимое папки publish:"
+        ls -la ./publish/
+
+    - name: 📝 Создаем информацию о сборке
+      run: |
+        echo "=== ИНФОРМАЦИЯ О СБОРКЕ ==="
+        cat > ./publish/build-info.txt << EOL
+        Build Information
+        =================
+        Application: Simple Blog API
+        Version: 1.0.0
+        Commit: ${{ github.sha }}
+        Branch: ${{ github.ref }}
+        Built: $(date)
+        Author: ${{ github.actor }}
+        .NET Version: ${{ env.DOTNET_VERSION }}
+        EOL
+        
+        echo "✅ Файл build-info.txt создан"
+
+    - name: 📦 Архивируем для релиза
+      run: |
+        echo "=== АРХИВАЦИЯ ДЛЯ РЕЛИЗА ==="
+        zip -r simple-blog-api-release.zip ./publish/
+        echo "✅ Архив создан"
+        ls -lh simple-blog-api-release.zip
+
+    - name: 💾 Сохраняем релизный пакет
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-package
+        path: simple-blog-api-release.zip
+        retention-days: 30
+
+  # Джоба 5: Финальный отчет
+  report:
+    name: 📊 Итоговый отчет
+    needs: [build, test, docker-build, publish]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📈 Генерируем отчет
+      run: |
+        echo "========================================"
+        echo "🎉 ПОЛНЫЙ ОТЧЕТ О ВЫПОЛНЕНИИ ПАЙПЛАЙНА"
+        echo "========================================"
+        echo ""
+        echo "📋 ВСЕ ВЫПОЛНЕННЫЕ ЭТАПЫ:"
+        echo "✅ 1. Сборка проекта (build)"
+        echo "   - Восстановление зависимостей"
+        echo "   - Сборка основного проекта"
+        echo "   - Сборка тестового проекта"
+        echo ""
+        echo "✅ 2. Тестирование (test)"
+        echo "   - Запуск unit тестов: 3 теста"
+        echo "   - Запуск интеграционных тестов: 1 тест"
+        echo "   - Всего тестов: 4"
+        echo ""
+        echo "✅ 3. Сборка Docker образа (docker-build)"
+        echo "   - Сборка Docker образа simple-blog-api:latest"
+        echo ""
+        echo "✅ 4. Публикация приложения (publish)"
+        echo "   - Публикация приложения"
+        echo "   - Создание архива для релиза"
+        echo ""
+        echo "📦 СОЗДАННЫЕ АРТЕФАКТЫ:"
+        echo "📁 build-artifacts - файлы сборки"
+        echo "📁 test-results - результаты тестирования"
+        echo "📁 release-package - релизный пакет"
+        echo ""
+        echo "🔧 ТЕХНИЧЕСКАЯ ИНФОРМАЦИЯ:"
+        echo "   Название проекта: Simple Blog API"
+        echo "   .NET Version: ${{ env.DOTNET_VERSION }}"
+        echo "   Ветка: ${{ github.ref }}"
+        echo "   Коммит: ${{ github.sha }}"
+        echo "   Автор: ${{ github.actor }}"
+        echo "   Время запуска: ${{ github.event.head_commit.timestamp }}"
+        echo "   Время завершения: $(date)"
+        echo ""
+        echo "🏁 ИТОГОВЫЙ СТАТУС: УСПЕШНО"
+        echo "Все 4 этапа выполнены без ошибок!"
+        echo "========================================"
+    
+    - name: 🎯 Финальное сообщение
       if: always()
       run: |
-        echo "=== ОТЧЕТ ==="
-        echo "✅ Пайплайн выполнен"
-        echo "🕒 Время: $(date)"
+        echo ""
+        echo "🌟 ЧТО ДАЛЬШЕ?"
+        echo "1. Скачайте артефакты из раздела 'Artifacts'"
+        echo "2. Используйте release-package.zip для деплоя"
+        echo "3. Docker образ готов к использованию"
+        echo "4. Все тесты пройдены успешно"
