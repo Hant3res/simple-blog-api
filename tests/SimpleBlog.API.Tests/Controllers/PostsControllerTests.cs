@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SimpleBlog.API.Data;
+using System.Net;
+using System.Net.Http.Json;
 using Xunit;
 
 namespace SimpleBlog.API.Tests.Controllers;
@@ -28,7 +30,7 @@ public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>
         var response = await _client.GetAsync("/api/posts");
         
         // Assert
-        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -38,7 +40,7 @@ public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>
         var response = await _client.GetAsync("/api/posts/1");
         
         // Assert
-        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -56,6 +58,6 @@ public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>
         var response = await _client.PostAsJsonAsync("/api/posts", newPost);
         
         // Assert
-        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 }

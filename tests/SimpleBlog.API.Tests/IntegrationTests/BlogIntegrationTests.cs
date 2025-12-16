@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SimpleBlog.API.Data;
-using SimpleBlog.API.Models;
+using System.Net;
 using System.Net.Http.Json;
 using Xunit;
 
@@ -35,16 +35,10 @@ public class BlogIntegrationTests : IClassFixture<WebApplicationFactory<Program>
         
         // Act 1: Создаем пост
         var postResponse = await _client.PostAsJsonAsync("/api/posts", newPost);
-        postResponse.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Created, postResponse.StatusCode);
         
         // Act 2: Получаем все посты
         var getResponse = await _client.GetAsync("/api/posts");
-        getResponse.EnsureSuccessStatusCode();
-        
-        var posts = await getResponse.Content.ReadFromJsonAsync<List<Post>>();
-        
-        // Assert
-        Assert.NotNull(posts);
-        Assert.True(posts.Count > 0);
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
     }
 }

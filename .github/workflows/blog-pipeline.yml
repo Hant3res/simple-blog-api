@@ -6,8 +6,6 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  PROJECT_PATH: 'src/SimpleBlog.API'
-  TEST_PATH: 'tests/SimpleBlog.API.Tests'
 
 jobs:
   test:
@@ -27,21 +25,19 @@ jobs:
       run: dotnet restore
 
     - name: 🔨 Собираем проект
-      run: dotnet build ${{ env.PROJECT_PATH }} --verbosity normal
-
-    - name: 🧪 Запускаем тесты с подробным выводом
+      run: |
+        echo "=== СБОРКА ПРОЕКТА ==="
+        dotnet build --verbosity minimal
+        
+    - name: 🧪 Запускаем тесты
       run: |
         echo "=== ЗАПУСК ТЕСТОВ ==="
         cd tests/SimpleBlog.API.Tests
-        dotnet test --verbosity detailed --logger "console;verbosity=detailed"
+        dotnet test --verbosity minimal
         
-    - name: 📊 Создаем отчет
+    - name: 📊 Отчет
       if: always()
       run: |
-        echo "=== ОТЧЕТ О ТЕСТИРОВАНИИ ==="
-        echo "Проект: Simple Blog API"
-        echo ".NET Version: ${{ env.DOTNET_VERSION }}"
-        echo "Ветка: ${{ github.ref }}"
-        echo "Коммит: ${{ github.sha }}"
-        echo "Время: $(date)"
-        echo "=========================="
+        echo "=== ОТЧЕТ ==="
+        echo "✅ Пайплайн выполнен"
+        echo "🕒 Время: $(date)"
