@@ -17,5 +17,6 @@ public class Comment
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public int PostId { get; set; }
-    public Post? Post { get; set; } = null;
+    // Убираем навигационное свойство Post, чтобы избежать циклической зависимости
+    // public Post? Post { get; set; } = null;
 }

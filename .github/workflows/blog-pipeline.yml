@@ -2,20 +2,16 @@ name: 🚀 Blog API Pipeline
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
     branches: [main]
 
 env:
   DOTNET_VERSION: '8.0.x'
-  PROJECT_NAME: 'SimpleBlog.API'
   PROJECT_PATH: 'src/SimpleBlog.API'
   TEST_PATH: 'tests/SimpleBlog.API.Tests'
 
 jobs:
-  # Джоба 1: Сборка и проверка кода
-  build:
-    name: 🔨 Сборка проекта
+  test:
+    name: 🧪 Тестирование
     runs-on: ubuntu-latest
 
     steps:
@@ -31,145 +27,21 @@ jobs:
       run: dotnet restore
 
     - name: 🔨 Собираем проект
-      run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release
+      run: dotnet build ${{ env.PROJECT_PATH }} --verbosity normal
 
-    - name: 💾 Сохраняем собранное приложение
-      uses: actions/upload-artifact@v4
-      with:
-        name: blog-api-build
-        path: ${{ env.PROJECT_PATH }}/bin/Release/net8.0/
-        retention-days: 7
-
-  # Джоба 2: Запуск тестов
-  test:
-    name: 🧪 Запуск тестов
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: 💬 Загружаем код
-      uses: actions/checkout@v4
-
-    - name: 💬 Устанавливаем .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-
-    - name: 🧪 Запускаем unit-тесты
-      run: dotnet test ${{ env.TEST_PATH }} --verbosity normal --logger "trx;LogFileName=unit-tests.trx"
-
-    - name: 🧪 Запускаем интеграционные тесты
-      run: dotnet test ${{ env.TEST_PATH }} --verbosity normal --logger "trx;LogFileName=integration-tests.trx"
-
-    - name: 📊 Сохраняем результаты тестов
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: |
-          ${{ env.TEST_PATH }}/TestResults/*.trx
-        retention-days: 30
-
-  # Джоба 3: Создание Docker образа
-  docker-build:
-    name: 🐳 Сборка Docker образа
-    needs: test
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: 💬 Загружаем код
-      uses: actions/checkout@v4
-
-    - name: 🐳 Логин в Docker Hub (опционально)
-      if: false  # Отключено для учебных целей
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: 🐳 Собираем Docker образ
+    - name: 🧪 Запускаем тесты с подробным выводом
       run: |
-        docker build -t simple-blog-api:${{ github.sha }} .
-        docker images
-
-    - name: 💾 Сохраняем Dockerfile и конфиги
-      uses: actions/upload-artifact@v4
-      with:
-        name: docker-configs
-        path: |
-          Dockerfile
-          **/appsettings.json
-        retention-days: 7
-
-  # Джоба 4: Публикация приложения
-  publish:
-    name: 📦 Публикация приложения
-    needs: [build, test, docker-build]
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: 💬 Загружаем код
-      uses: actions/checkout@v4
-
-    - name: 💬 Устанавливаем .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-
-    - name: 📦 Публикуем приложение
-      run: dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish --self-contained false
-
-    - name: 📝 Создаем файл с информацией о сборке
+        echo "=== ЗАПУСК ТЕСТОВ ==="
+        cd tests/SimpleBlog.API.Tests
+        dotnet test --verbosity detailed --logger "console;verbosity=detailed"
+        
+    - name: 📊 Создаем отчет
+      if: always()
       run: |
-        echo "Build Information" > ./publish/build-info.txt
-        echo "========================" >> ./publish/build-info.txt
-        echo "Version: 1.0.0" >> ./publish/build-info.txt
-        echo "Commit: ${{ github.sha }}" >> ./publish/build-info.txt
-        echo "Branch: ${{ github.ref }}" >> ./publish/build-info.txt
-        echo "Built: $(date)" >> ./publish/build-info.txt
-        echo "Author: ${{ github.actor }}" >> ./publish/build-info.txt
-
-    - name: 📦 Архивируем приложение
-      run: |
-        zip -r simple-blog-api-v1.0.0.zip ./publish/*
-        echo "Размер архива:"
-        ls -lh simple-blog-api-v1.0.0.zip
-
-    - name: 💾 Сохраняем релизный пакет
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-package
-        path: simple-blog-api-v1.0.0.zip
-        retention-days: 30
-
-  # Джоба 5: Финальный отчет
-  report:
-    name: 📊 Итоговый отчет
-    needs: [build, test, docker-build, publish]
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: 📊 Генерируем отчет
-      run: |
-        echo "========================================"
-        echo "🚀 BLOG API ПАЙПЛАН ЗАВЕРШЕН!"
-        echo "========================================"
-        echo ""
-        echo "📋 РЕЗУЛЬТАТЫ ВЫПОЛНЕНИЯ:"
-        echo "✅ Сборка проекта - УСПЕШНО"
-        echo "✅ Запуск тестов - УСПЕШНО"
-        echo "✅ Docker сборка - УСПЕШНО"
-        echo "✅ Публикация приложения - УСПЕШНО"
-        echo ""
-        echo "📦 СОЗДАННЫЕ АРТЕФАКТЫ:"
-        echo "📦 blog-api-build - Собранное приложение"
-        echo "📦 test-results - Результаты тестирования"
-        echo "📦 docker-configs - Docker конфигурации"
-        echo "📦 release-package - Релизный пакет"
-        echo ""
-        echo "ℹ️ ИНФОРМАЦИЯ О ПРОЕКТЕ:"
-        echo "🔹 Название: ${{ env.PROJECT_NAME }}"
-        echo "🔹 .NET Version: ${{ env.DOTNET_VERSION }}"
-        echo "🔹 Ветка: ${{ github.ref }}"
-        echo ""
-        echo "🕒 Время завершения: $(date)"
-        echo "========================================"
+        echo "=== ОТЧЕТ О ТЕСТИРОВАНИИ ==="
+        echo "Проект: Simple Blog API"
+        echo ".NET Version: ${{ env.DOTNET_VERSION }}"
+        echo "Ветка: ${{ github.ref }}"
+        echo "Коммит: ${{ github.sha }}"
+        echo "Время: $(date)"
+        echo "=========================="

@@ -14,6 +14,13 @@ public class BlogContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Настраиваем отношения без циклических зависимостей
+        modelBuilder.Entity<Post>()
+            .HasMany(p => p.Comments)
+            .WithOne()
+            .HasForeignKey(c => c.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
         // Наполняем начальными данными
         modelBuilder.Entity<Post>().HasData(
             new Post { Id = 1, Title = "Добро пожаловать в блог!", Content = "Это первый пост в нашем блоге.", Author = "Админ", CreatedAt = DateTime.Now },

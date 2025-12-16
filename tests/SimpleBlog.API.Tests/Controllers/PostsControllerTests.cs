@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SimpleBlog.API.Data;
-using SimpleBlog.API.Models;
-using System.Net.Http.Json;
 using Xunit;
 
 namespace SimpleBlog.API.Tests.Controllers;
@@ -11,31 +9,22 @@ namespace SimpleBlog.API.Tests.Controllers;
 public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
+    private readonly BlogContext _context;
 
     public PostsControllerTests(WebApplicationFactory<Program> factory)
     {
-        _client = factory.WithWebHostBuilder(builder =>
-        {
-            builder.ConfigureServices(services =>
-            {
-                // Заменяем базу данных на InMemory для тестов
-                var descriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(DbContextOptions<BlogContext>));
-                if (descriptor != null)
-                    services.Remove(descriptor);
-                    
-                services.AddDbContext<BlogContext>(options =>
-                {
-                    options.UseInMemoryDatabase("TestBlog");
-                });
-            });
-        }).CreateClient();
+        // Создаем тестовую базу данных
+        var scope = factory.Services.CreateScope();
+        _context = scope.ServiceProvider.GetRequiredService<BlogContext>();
+        _context.Database.EnsureCreated();
+        
+        _client = factory.CreateClient();
     }
 
     [Fact]
-    public async Task GetPosts_ReturnsOk()
+    public async Task GetPosts_ReturnsSuccessStatusCode()
     {
-        // Arrange & Act
+        // Act
         var response = await _client.GetAsync("/api/posts");
         
         // Assert
@@ -43,9 +32,9 @@ public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
-    public async Task GetPost_ExistingId_ReturnsOk()
+    public async Task GetPost_ExistingId_ReturnsSuccess()
     {
-        // Arrange & Act
+        // Act
         var response = await _client.GetAsync("/api/posts/1");
         
         // Assert
@@ -56,10 +45,11 @@ public class PostsControllerTests : IClassFixture<WebApplicationFactory<Program>
     public async Task CreatePost_ReturnsCreated()
     {
         // Arrange
-        var newPost = new { 
-            Title = "Новый пост", 
-            Content = "Содержание нового поста", 
-            Author = "Тест" 
+        var newPost = new 
+        { 
+            Title = "Тестовый пост", 
+            Content = "Содержание тестового поста", 
+            Author = "Тестер" 
         };
         
         // Act

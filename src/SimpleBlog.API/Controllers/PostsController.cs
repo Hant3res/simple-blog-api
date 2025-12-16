@@ -17,15 +17,19 @@ public class PostsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<Post>>> GetPosts()
+    public async Task<ActionResult<IEnumerable<Post>>> GetPosts()
     {
-        return await _context.Posts.Include(p => p.Comments).ToListAsync();
+        return await _context.Posts
+            .Include(p => p.Comments)
+            .ToListAsync();
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<Post>> GetPost(int id)
     {
-        var post = await _context.Posts.Include(p => p.Comments).FirstOrDefaultAsync(p => p.Id == id);
+        var post = await _context.Posts
+            .Include(p => p.Comments)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         if (post == null)
             return NotFound();

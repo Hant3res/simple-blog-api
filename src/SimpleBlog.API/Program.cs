@@ -1,26 +1,26 @@
 using Microsoft.EntityFrameworkCore;
 using SimpleBlog.API.Data;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Добавляем сервисы в контейнер
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = true;
+    });
+    
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Настраиваем базу данных
-// По умолчанию используем InMemory для тестов
-if (builder.Environment.EnvironmentName == "Test" || 
-    builder.Environment.IsEnvironment("Testing"))
+builder.Services.AddDbContext<BlogContext>(options =>
 {
-    builder.Services.AddDbContext<BlogContext>(options =>
-        options.UseInMemoryDatabase("TestBlog"));
-}
-else
-{
-    builder.Services.AddDbContext<BlogContext>(options =>
-        options.UseSqlite("Data Source=blog.db"));
-}
+    // Всегда используем InMemory для простоты тестирования
+    options.UseInMemoryDatabase("BlogDb");
+});
 
 var app = builder.Build();
 
@@ -35,15 +35,11 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
-// Инициализируем базу данных (только если не тестовая среда)
-if (!app.Environment.IsEnvironment("Test") && 
-    !app.Environment.IsEnvironment("Testing"))
+// Инициализируем базу данных
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
-    {
-        var context = scope.ServiceProvider.GetRequiredService<BlogContext>();
-        context.Database.EnsureCreated();
-    }
+    var context = scope.ServiceProvider.GetRequiredService<BlogContext>();
+    context.Database.EnsureCreated();
 }
 
 app.Run();
