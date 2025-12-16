@@ -1,0 +1,12 @@
+bin/
+obj/
+publish/
+*.db
+*.user
+*.suo
+*.cache
+*.vs/
+TestResults/
+coverage.*
+.env
+.DS_Store
